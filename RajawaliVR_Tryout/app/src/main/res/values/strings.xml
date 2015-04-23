@@ -1,0 +1,8 @@
+<resources>
+
+    <string name="app_name">RajawaliVuforiaVr</string>
+    <string name="textLeft">%1$s</string>
+    <string name="textRight">%1$s</string>
+    <string name="street">Street</string>
+
+</resources>

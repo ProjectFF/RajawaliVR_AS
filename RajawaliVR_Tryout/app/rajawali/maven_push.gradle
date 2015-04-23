@@ -1,0 +1,99 @@
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+def getRepositoryUsername() {
+    return hasProperty('SONATYPE_USERNAME') ? SONATYPE_USERNAME : System.getenv('SONATYPE_USERNAME') != null ? System.getenv('SONATYPE_USERNAME') : ""
+}
+
+def getRepositoryPassword() {
+    return hasProperty('SONATYPE_PASSWORD') ? SONATYPE_PASSWORD : System.getenv('SONATYPE_PASSWORD') != null ? System.getenv('SONATYPE_PASSWORD') : ""
+}
+
+boolean isLocal() {
+    return !isRelease() || (getRepositoryUsername().isEmpty() || getRepositoryPassword().isEmpty())
+}
+
+boolean isRelease() {
+    return isTag() || getBranchName().equals("master")
+}
+
+afterEvaluate { project ->
+    uploadArchives {
+
+        repositories {
+            mavenDeployer {
+                beforeDeployment {
+                    MavenDeployment deployment -> signing.signPom(deployment)
+                }
+
+                pom.artifactId = POM_ARTIFACT_ID
+
+                repository(url: isLocal() ? mavenLocal().url : "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+
+                snapshotRepository(url: isLocal() ? mavenLocal().url : "https://oss.sonatype.org/content/repositories/snapshots") {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+
+                pom.project {
+                    name POM_NAME
+                    packaging POM_PACKAGING
+                    description POM_DESCRIPTION
+                    url POM_URL
+
+                    scm {
+                        url POM_SCM_URL
+                        connection POM_SCM_CONNECTION
+                        developerConnection POM_SCM_DEV_CONNECTION
+                    }
+
+                    licenses {
+                        license {
+                            name POM_LICENCE_NAME
+                            url POM_LICENCE_URL
+                            distribution POM_LICENCE_DIST
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id POM_DEVELOPER_ID
+                            name POM_DEVELOPER_NAME
+                            email POM_DEVELOPER_EMAIL
+                            organization POM_DEVELOPER_ORGANIZATION
+                            organizationUrl POM_DEVELOPER_ORGANIZATION_URL
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    signing {
+        required { isRelease() && gradle.taskGraph.hasTask("uploadArchives") }
+        sign configurations.archives
+    }
+
+    task androidJavadocs(type: Javadoc) {
+        source = android.sourceSets.main.java.srcDirs
+    }
+
+    task androidJavadocsJar(type: Jar) {
+        classifier = 'javadoc'
+        baseName = project.projectDir.getName().toLowerCase()
+        from androidJavadocs.destinationDir
+    }
+
+    task androidSourcesJar(type: Jar) {
+        classifier = 'sources'
+        baseName = project.projectDir.getName().toLowerCase()
+        from android.sourceSets.main.java.srcDirs
+    }
+
+    artifacts {
+        archives packageReleaseJar
+        archives androidSourcesJar
+        archives androidJavadocsJar
+    }
+}
